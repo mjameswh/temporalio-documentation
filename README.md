@@ -380,7 +380,7 @@ Example configuration:
 
 ```json
 {
-  "file_name": "foundations.md", // name of the file that gets written to the docs directory
+  "file_name": "foundations.mdx", // name of the file that gets written to the docs directory
   "file_dir": "dev-guide/golang", // the directory that the file is written to
   "id": "foundations", // id of the document that is used by Docusaurus
   "slug": "/dev-guide/go/foundations", // slug of the document that is used by Docusaurus - OVERRIDES id + file_dir slug
@@ -584,7 +584,7 @@ For example:
 
 ```json
 {
-  "file_name": "foundations.md",
+  "file_name": "foundations.mdx",
   "id": "foundations",
   "file_dir": "application-development/golang",
   "title": "Go SDK developer's guide - Foundations",

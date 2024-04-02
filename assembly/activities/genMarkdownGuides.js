@@ -4,6 +4,8 @@ import { localRef } from "../common/index.js";
 
 const plannedText = `Content is planned but not yet available.`;
 
+const enableDebugHelpers = process.env.DEBUG_HELPERS?.toLowerCase() === "true";
+
 export async function genMarkdownGuides(config) {
   console.log(`generating the full markdown for all guides...`);
   const matchedGuidesPath = path.join(config.root_dir, config.temp_write_dir, config.attached_nodes_file_name);
@@ -22,6 +24,9 @@ async function generateGuide(config, guideCfg) {
   console.log(`generating ${guideCfg.title}`);
   let guideStr = await frontmatter(guideCfg);
   for (const section of guideCfg.sections) {
+    if (enableDebugHelpers) {
+      guideStr = `${guideStr}<SourceFile location="${section.node.file_path?.replace(config.root_dir, "")}">\n`;
+    }
     switch (section.type) {
       case "h2":
         if (section.node.tags && Array.isArray(section.node.tags) && section.node.tags.includes("cli reference")) {
@@ -61,6 +66,9 @@ async function generateGuide(config, guideCfg) {
       default:
         console.log("unhandled section type...");
         console.log(JSON.stringify(section));
+    }
+    if (enableDebugHelpers) {
+      guideStr = `${guideStr}</SourceFile>\n`;
     }
   }
   guideCfg.markdown_content = guideStr;
@@ -122,6 +130,9 @@ async function frontmatter(guideCfg) {
   if (guideCfg.add_tabs_support) {
     guideStr = `${guideStr}import Tabs from '@theme/Tabs';\n`;
     guideStr = `${guideStr}import TabItem from '@theme/TabItem';\n\n`;
+  }
+  if (enableDebugHelpers) {
+    guideStr = `${guideStr}import SourceFile from '@theme/SourceFile';\n\n`;
   }
   if (guideCfg.use_description) {
     guideStr = `${guideStr}${guideCfg.description}\n\n`;

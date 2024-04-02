@@ -1,0 +1,21 @@
+.sourceFile {
+  position: relative;
+  border: 1px solid transparent;
+}
+
+.sourceFile .location {
+  display: none;
+}
+
+.sourceFile:hover {
+  border: 1px solid blue;
+}
+
+.sourceFile:hover .location {
+  display: block;
+  position: absolute;
+  right: 0;
+  top: -1.6em;
+  font: normal 9pt var(--ifm-font-family-monospace);
+  color: blue;
+}

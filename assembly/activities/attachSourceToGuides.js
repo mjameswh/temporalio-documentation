@@ -1,6 +1,13 @@
 import readdirp from "readdirp";
 import fs from "fs-extra";
 import path from "path";
+import { rm, mkdir, symlink } from "fs/promises";
+
+// Use a Symbol to track usage on content nodes, as that will automatically
+// avoid serialization when writing the Attached Nodes back to a JSON file.
+const usageSymbol = Symbol.for("Usage");
+
+const enableDebugHelpers = process.env.DEBUG_HELPERS?.toLowerCase() === "true";
 
 export async function attachSourceToGuides(config) {
   console.log("attaching source content to guide configurations...");
@@ -19,6 +26,38 @@ export async function attachSourceToGuides(config) {
   guideConfigs.cfgs = await attachNodes(guideConfigs.cfgs, sourceInfoNodes);
   const writePath = path.join(config.root_dir, config.temp_write_dir, config.attached_nodes_file_name);
   await fs.writeJSON(writePath, guideConfigs);
+
+  const contentNodeUsageReportPath = path.join(config.root_dir, "CONTENT_NODE_USAGE_REPORT.json");
+  const contentNodeUsage = Object.fromEntries(sourceInfoNodes.map((node) => [node.id, node[usageSymbol] ?? []]));
+  await fs.writeJSON(contentNodeUsageReportPath, contentNodeUsage, { spaces: 2 });
+
+  if (enableDebugHelpers) {
+    console.log("Creating debug symlinks...");
+
+    const guidesOutDir = path.join(config.root_dir, "guides-out");
+    await rm(guidesOutDir, { recursive: true, force: true });
+    await mkdir(guidesOutDir, { recursive: true });
+
+    for (const guide of guideConfigs.cfgs) {
+      const slug = guide.slug ?? `${guide.file_dir}/${guide.id}`;
+      console.log(`Entering guide ${slug}...`);
+
+      try {
+        const guideOutPath = path.join(guidesOutDir, slug);
+        await mkdir(guideOutPath, { recursive: true });
+
+        for (let i = 0; i < guide.sections.length; i++) {
+          const section = guide.sections[i];
+          await symlink(
+            section.node.file_path,
+            path.join(guideOutPath, `${`${10000 + i}`.slice(-4)}-${path.basename(section.node.id)}.md`)
+          );
+        }
+      } catch (e) {
+        console.error("Failed to create debug symlinks", e);
+      }
+    }
+  }
   return;
 }
 
@@ -36,10 +75,10 @@ async function findMatches(guideConfig, infoNodes) {
   const newSections = [];
   for (const section of guideConfig.sections) {
     if (section.type == "langtabs") {
-      section.langtabs = await matchLangTabs(section.langtabs, infoNodes, guideConfig.id);  // Pass the guideConfig.id here
+      section.langtabs = await matchLangTabs(section.langtabs, infoNodes, guideConfig.id); // Pass the guideConfig.id here
       newSections.push(section);
     } else {
-      section.node = await matchNode(section.id, infoNodes, guideConfig.id);  // Pass the guideConfig.id here
+      section.node = await matchNode(section.id, infoNodes, guideConfig.id); // Pass the guideConfig.id here
       newSections.push(section);
     }
   }
@@ -47,26 +86,27 @@ async function findMatches(guideConfig, infoNodes) {
   return guideConfig;
 }
 
-
 async function matchLangTabs(langtabs, infoNodes, guideId) {
   let updatedTabs = [];
   for (const langtab of langtabs) {
     if (langtab.id != "none" && langtab.id != "na") {
-      langtab.node = await matchNode(langtab.id, infoNodes, guideId);  // Pass the guideId here
+      langtab.node = await matchNode(langtab.id, infoNodes, guideId); // Pass the guideId here
     }
     updatedTabs.push(langtab);
   }
   return updatedTabs;
 }
 
-
-async function matchNode(id, infoNodes, guideId) {  // Accept the guideId here
+async function matchNode(id, infoNodes, guideId) {
+  // Accept the guideId here
   const match = infoNodes.find((node) => {
     return node.id === id;
   });
   if (match == undefined) {
     // If it can't find the matching node, returns the ID and guide config that caused the error.
-    throw `Can't find a matching node for ${id} in the Guide Config: ${guideId}.json`; 
+    throw `Can't find a matching node for ${id} in the Guide Config: ${guideId}.json`;
   }
+  match[usageSymbol] ??= [];
+  match[usageSymbol].push(guideId);
   return match;
 }
